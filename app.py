@@ -1,55 +1,68 @@
 from flask import Flask, request, jsonify
+from pydantic import BaseModel
+from flask_pydantic import validate
 
 app = Flask(__name__)
 
 seq = 1
 database = []
 
+class UserValidator(BaseModel):
+    nome: str
+    login: str
+    nascimento: str
+    senha: str
+
+class GetQueryModel(BaseModel):
+    id: int
+
 # LIST
 @app.route("/user", methods=["GET"])
 def get_user():
     return jsonify(database)
 
-@app.route("/user/<int:user_id>", methods=["GET"])
-def select_user(user_id):
+# SELECT
+@app.route("/user/view", methods=["GET"])
+@validate()
+def select_user(query: GetQueryModel):
     for obj in database:
-        if obj["id"] == user_id:
+        if obj["id"] == query.id:
             return jsonify(obj)
 
     return jsonify({"message": "Usuário não localizado"})    
 
 # ADD
 @app.route("/user/add", methods=["POST"])
-def add_user():
+@validate()
+def add_user(body: UserValidator):
     global seq
     global database
 
-    new_user = request.json
     
-    database.append(    
-        {
+    
+    new_user = {
             "id": seq,
-            "nome": new_user["nome"],
-            "login": new_user["login"],
-            "data de nascimento": new_user["nascimento"],
-            "senha": new_user["senha"]
+            "nome": body.nome,
+            "login": body.login,
+            "data de nascimento": body.nascimento,
+            "senha": body.senha
         }
-    )
-
-    new_user["id"] = seq    
+  
     seq = seq + 1
+    database.append(new_user)
 
     return jsonify({"message": "Novo usuário criado", "user": new_user})
 
 # EDIT
-@app.route("/user/edit/<int:user_id>", methods=["PUT"])
-def edit_user(user_id):
+@app.route("/user/edit", methods=["PUT"])
+@validate()
+def edit_user(query: GetQueryModel):
     global database
     new_user = request.json
 
     found = False
     for i in range(len(database)):
-        if database[i]["id"] == user_id:
+        if database[i]["id"] == query.id:
             database[i]["nome"] = new_user["nome"]
             database[i]["login"] = new_user["login"]
             database[i]["nascimento"] = new_user["nascimento"]
@@ -64,13 +77,14 @@ def edit_user(user_id):
 
 
 # DELETE
-@app.route("/user/delete/<int:user_id>", methods=["DELETE"])
-def remove_user(user_id):
+@app.route("/user/delete", methods=["DELETE"])
+@validate()
+def remove_user(query: GetQueryModel):
     global database
     
     found = False 
     for i in range(len(database)):
-        if database[i]["id"] == user_id:
+        if database[i]["id"] == query.id:
             database.pop(i)
             found = True
             break
